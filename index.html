@@ -1,0 +1,1226 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Three.js Physics Geometry Lab</title>
+	<style>
+		:root {
+			color-scheme: dark;
+			--bg: #07111f;
+			--panel: rgba(10, 18, 33, 0.78);
+			--panel-border: rgba(255, 255, 255, 0.12);
+			--text: #e9f1ff;
+			--muted: #9fb4d3;
+			--accent: #77d9ff;
+			--accent-2: #8bffcf;
+			--danger: #ff7aa2;
+		}
+
+		html, body {
+			width: 100%;
+			height: 100%;
+			margin: 0;
+			overflow: hidden;
+			background: radial-gradient(circle at top, #102849 0%, var(--bg) 52%, #02060d 100%);
+			font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+			color: var(--text);
+		}
+
+		#app {
+			position: relative;
+			width: 100vw;
+			height: 100vh;
+		}
+
+		canvas {
+			display: block;
+		}
+
+		canvas.grab-ready {
+			cursor: grab;
+		}
+
+		canvas.grabbing {
+			cursor: grabbing;
+		}
+
+		.hud {
+			position: absolute;
+			left: 14px;
+			top: 14px;
+			display: grid;
+			gap: 10px;
+			width: min(360px, calc(100vw - 28px));
+			max-height: calc(100vh - 28px);
+			pointer-events: none;
+		}
+
+		.card {
+			pointer-events: auto;
+			background: linear-gradient(180deg, rgba(7, 16, 27, 0.96), rgba(11, 20, 32, 0.92));
+			border: 1px solid rgba(104, 255, 172, 0.18);
+			backdrop-filter: blur(12px);
+			border-radius: 12px;
+			box-shadow: 0 18px 45px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+			padding: 12px;
+			font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, Monaco, monospace;
+		}
+
+		.title {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+			margin-bottom: 10px;
+		}
+
+		.title h1 {
+			font-size: 15px;
+			text-transform: uppercase;
+			letter-spacing: 0.08em;
+			margin: 0;
+			color: #d8ffe7;
+		}
+
+		.badge {
+			font-size: 11px;
+			color: #9fffc7;
+			border: 1px solid rgba(104, 255, 172, 0.22);
+			background: rgba(104, 255, 172, 0.06);
+			border-radius: 999px;
+			padding: 5px 8px;
+			white-space: nowrap;
+			user-select: none;
+		}
+
+		.badges {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 6px;
+			margin-bottom: 10px;
+		}
+
+		.section-label {
+			margin-top: 10px;
+			margin-bottom: 6px;
+			font-size: 10px;
+			letter-spacing: 0.18em;
+			text-transform: uppercase;
+			color: rgba(176, 255, 207, 0.72);
+		}
+
+		.panel-toggle {
+			font-size: 11px;
+			color: var(--text);
+			border: 1px solid rgba(104, 255, 172, 0.18);
+			background: rgba(104, 255, 172, 0.07);
+			border-radius: 8px;
+			padding: 5px 8px;
+			cursor: pointer;
+			white-space: nowrap;
+			transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+		}
+
+		.panel-toggle:hover {
+			transform: translateY(-1px);
+			border-color: rgba(104, 255, 172, 0.4);
+			background: rgba(104, 255, 172, 0.13);
+		}
+
+		.settings-body {
+			display: grid;
+			gap: 0;
+			overflow: hidden;
+			max-height: min(1000px, calc(100vh - 92px));
+			overflow-y: auto;
+			opacity: 1;
+			transition: max-height 220ms ease, opacity 180ms ease, transform 180ms ease;
+			padding-right: 2px;
+		}
+
+		.card.collapsed .settings-body {
+			max-height: 0;
+			opacity: 0;
+			transform: translateY(-6px);
+			pointer-events: none;
+		}
+
+		.card.collapsed .settings-body > * {
+			pointer-events: none;
+		}
+
+		.formula {
+			font-size: 12px;
+			line-height: 1.45;
+			color: var(--muted);
+		}
+
+		.formula code {
+			color: var(--text);
+			background: rgba(104, 255, 172, 0.06);
+			border: 1px solid rgba(104, 255, 172, 0.12);
+			border-radius: 6px;
+			padding: 2px 6px;
+		}
+
+		.sliders {
+			display: grid;
+			gap: 10px;
+			margin-top: 10px;
+		}
+
+		.slider-row {
+			display: grid;
+			gap: 4px;
+		}
+
+		.slider-row label {
+			display: flex;
+			justify-content: space-between;
+			gap: 12px;
+			font-size: 11px;
+			color: var(--muted);
+		}
+
+		.slider-row input[type="range"] {
+			width: 100%;
+			accent-color: var(--accent);
+		}
+
+		.slider-value {
+			font-variant-numeric: tabular-nums;
+			color: var(--text);
+		}
+
+		button, .slider-row input[type="range"] {
+			accent-color: #68ffac;
+		}
+
+		.controls {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 8px;
+			margin-top: 10px;
+		}
+
+		button {
+			appearance: none;
+			border: 1px solid rgba(104, 255, 172, 0.16);
+			background: linear-gradient(180deg, rgba(104, 255, 172, 0.12), rgba(104, 255, 172, 0.05));
+			color: var(--text);
+			padding: 8px 10px;
+			border-radius: 8px;
+			cursor: pointer;
+			font-weight: 600;
+			font-size: 11px;
+			transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+		}
+
+		button:hover {
+			transform: translateY(-1px);
+			border-color: rgba(104, 255, 172, 0.35);
+			background: linear-gradient(180deg, rgba(104, 255, 172, 0.18), rgba(104, 255, 172, 0.08));
+		}
+
+		.hint {
+			font-size: 11px;
+			color: rgba(159, 180, 211, 0.84);
+			margin-top: 8px;
+		}
+
+		.stats {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 8px;
+			margin-top: 10px;
+		}
+
+		.stat {
+			padding: 8px 10px;
+			border-radius: 10px;
+			background: rgba(255, 255, 255, 0.03);
+			border: 1px solid rgba(104, 255, 172, 0.09);
+		}
+
+		.stat-label {
+			font-size: 10px;
+			color: rgba(159, 180, 211, 0.84);
+			text-transform: uppercase;
+			letter-spacing: 0.14em;
+			margin-bottom: 4px;
+		}
+
+		.stat-value {
+			font-size: 16px;
+			font-weight: 700;
+		}
+
+		.footer-note {
+			position: absolute;
+			right: 14px;
+			bottom: 12px;
+			max-width: min(340px, calc(100vw - 28px));
+			text-align: right;
+			font-size: 11px;
+			color: rgba(233, 241, 255, 0.68);
+			pointer-events: none;
+		}
+
+		@media (max-width: 900px) {
+			.hud {
+				left: 10px;
+				top: 10px;
+				width: min(320px, calc(100vw - 20px));
+				max-height: calc(100vh - 20px);
+			}
+
+			.card {
+				padding: 10px;
+			}
+
+			.title h1 {
+				font-size: 14px;
+			}
+
+			.controls button {
+				flex: 1 1 calc(50% - 4px);
+			}
+
+			.footer-note {
+				right: 10px;
+				bottom: 10px;
+				max-width: min(300px, calc(100vw - 20px));
+			}
+		}
+
+		@media (max-width: 640px) {
+			.hud {
+				width: calc(100vw - 16px);
+				left: 8px;
+				top: 8px;
+			}
+
+			.stats {
+				grid-template-columns: 1fr;
+			}
+
+			.controls button {
+				flex: 1 1 100%;
+			}
+
+			.footer-note {
+				max-width: calc(100vw - 16px);
+				font-size: 10px;
+			}
+		}
+	</style>
+	<script type="importmap">
+		{
+			"imports": {
+				"three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js"
+			}
+		}
+	</script>
+</head>
+<body>
+	<div id="app">
+		<div class="hud">
+			<section class="card">
+				<div class="title">
+					<h1>Geometry Physics Lab</h1>
+					<button class="panel-toggle" id="panelToggle" type="button" aria-expanded="true">Collapse</button>
+				</div>
+				<div class="settings-body" id="settingsBody">
+					<div class="badges">
+						<div class="badge">Three.js + custom physics</div>
+						<div class="badge">Vortex field</div>
+						<div class="badge">Bounce tuning</div>
+					</div>
+					<div class="section-label">Physics formulas</div>
+					<div class="formula">
+						Motion update: <code>v(t+Δt) = v(t) + a·Δt</code><br />
+						Position update: <code>x(t+Δt) = x(t) + v(t+Δt)·Δt</code><br />
+						Gravity: <code>a = (0, -<span id="gravityFormula">9.81</span>, 0)</code><br />
+						Step size: <code>Δt = <span id="deltaTFormula">0.016</span>s</code><br />
+						Bounce: <code>v' = -<span id="restitutionFormula">0.78</span>·v</code> when a body hits the floor or walls.
+					</div>
+					<div class="controls">
+						<button id="addSphere">Add sphere</button>
+						<button id="addCube">Add cube</button>
+						<button id="addTetra">Add tetrahedron</button>
+						<button id="resetScene">Reset</button>
+						<button id="burstScene">Burst</button>
+						<button id="vortexToggle">Vortex: Off</button>
+						<button id="pauseToggle">Pause</button>
+					</div>
+					<div class="sliders">
+						<div class="slider-row">
+							<label for="gravitySlider">
+								<span>Gravity strength</span>
+								<span class="slider-value" id="gravityValue">9.81</span>
+							</label>
+							<input id="gravitySlider" type="range" min="0" max="20" step="0.01" value="9.81" />
+						</div>
+						<div class="slider-row">
+							<label for="deltaTSlider">
+								<span>Equation variable Δt</span>
+								<span class="slider-value" id="deltaTValue">0.016</span>
+							</label>
+							<input id="deltaTSlider" type="range" min="0.004" max="0.05" step="0.001" value="0.016" />
+						</div>
+						<div class="slider-row">
+							<label for="restitutionSlider">
+								<span>Bounce coefficient e</span>
+								<span class="slider-value" id="restitutionValue">0.78</span>
+							</label>
+							<input id="restitutionSlider" type="range" min="0.1" max="0.98" step="0.01" value="0.78" />
+						</div>
+						<div class="section-label">Global light</div>
+						<div class="slider-row">
+							<label for="lightIntensitySlider">
+								<span>Light intensity</span>
+								<span class="slider-value" id="lightIntensityValue">1.40</span>
+							</label>
+							<input id="lightIntensitySlider" type="range" min="0" max="4" step="0.01" value="1.40" />
+						</div>
+						<div class="slider-row">
+							<label for="lightAzimuthSlider">
+								<span>Light azimuth</span>
+								<span class="slider-value" id="lightAzimuthValue">35°</span>
+							</label>
+							<input id="lightAzimuthSlider" type="range" min="-180" max="180" step="1" value="35" />
+						</div>
+						<div class="slider-row">
+							<label for="lightElevationSlider">
+								<span>Light elevation</span>
+								<span class="slider-value" id="lightElevationValue">58°</span>
+							</label>
+							<input id="lightElevationSlider" type="range" min="5" max="85" step="1" value="58" />
+						</div>
+						<div class="slider-row">
+							<label for="glossSlider">
+								<span>Surface gloss</span>
+								<span class="slider-value" id="glossValue">0.72</span>
+							</label>
+							<input id="glossSlider" type="range" min="0" max="1" step="0.01" value="0.72" />
+						</div>
+						<div class="section-label">Lamp</div>
+						<div class="slider-row">
+							<label for="lampIntensitySlider">
+								<span>Lamp intensity</span>
+								<span class="slider-value" id="lampIntensityValue">2.20</span>
+							</label>
+							<input id="lampIntensitySlider" type="range" min="0" max="8" step="0.01" value="2.20" />
+						</div>
+						<div class="slider-row">
+							<label for="lampAzimuthSlider">
+								<span>Lamp azimuth</span>
+								<span class="slider-value" id="lampAzimuthValue">-28°</span>
+							</label>
+							<input id="lampAzimuthSlider" type="range" min="-180" max="180" step="1" value="-28" />
+						</div>
+						<div class="slider-row">
+							<label for="lampElevationSlider">
+								<span>Lamp elevation</span>
+								<span class="slider-value" id="lampElevationValue">32°</span>
+							</label>
+							<input id="lampElevationSlider" type="range" min="0" max="80" step="1" value="32" />
+						</div>
+					</div>
+					<div class="hint">Drag to orbit, scroll to zoom, and watch the shapes collide like tiny math goblins.</div>
+					<div class="stats">
+						<div class="stat">
+							<div class="stat-label">Bodies</div>
+							<div class="stat-value" id="bodyCount">0</div>
+						</div>
+						<div class="stat">
+							<div class="stat-label">Gravity</div>
+							<div class="stat-value" id="gravityStat">9.81</div>
+						</div>
+					</div>
+			</section>
+		</div>
+		<div class="footer-note">
+			The scene uses a simple rigid-body approximation: each mesh is treated as a bounding sphere for collision response.
+		</div>
+	</div>
+
+	<script type="module">
+		import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js";
+		import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/controls/OrbitControls.js";
+
+		const app = document.getElementById('app');
+		const bodyCountEl = document.getElementById('bodyCount');
+		const gravityValueEl = document.getElementById('gravityValue');
+		const gravityFormulaEl = document.getElementById('gravityFormula');
+		const gravityStatEl = document.getElementById('gravityStat');
+		const deltaTValueEl = document.getElementById('deltaTValue');
+		const deltaTFormulaEl = document.getElementById('deltaTFormula');
+		const restitutionValueEl = document.getElementById('restitutionValue');
+		const restitutionFormulaEl = document.getElementById('restitutionFormula');
+		const gravitySlider = document.getElementById('gravitySlider');
+		const deltaTSlider = document.getElementById('deltaTSlider');
+		const restitutionSlider = document.getElementById('restitutionSlider');
+		const lightIntensitySlider = document.getElementById('lightIntensitySlider');
+		const lightAzimuthSlider = document.getElementById('lightAzimuthSlider');
+		const lightElevationSlider = document.getElementById('lightElevationSlider');
+		const lightIntensityValueEl = document.getElementById('lightIntensityValue');
+		const lightAzimuthValueEl = document.getElementById('lightAzimuthValue');
+		const lightElevationValueEl = document.getElementById('lightElevationValue');
+		const lampIntensitySlider = document.getElementById('lampIntensitySlider');
+		const lampAzimuthSlider = document.getElementById('lampAzimuthSlider');
+		const lampElevationSlider = document.getElementById('lampElevationSlider');
+		const glossSlider = document.getElementById('glossSlider');
+		const lampIntensityValueEl = document.getElementById('lampIntensityValue');
+		const lampAzimuthValueEl = document.getElementById('lampAzimuthValue');
+		const lampElevationValueEl = document.getElementById('lampElevationValue');
+		const glossValueEl = document.getElementById('glossValue');
+		const panelToggle = document.getElementById('panelToggle');
+		const settingsBody = document.getElementById('settingsBody');
+		const addSphereBtn = document.getElementById('addSphere');
+		const addCubeBtn = document.getElementById('addCube');
+		const addTetraBtn = document.getElementById('addTetra');
+		const resetBtn = document.getElementById('resetScene');
+		const burstBtn = document.getElementById('burstScene');
+		const vortexBtn = document.getElementById('vortexToggle');
+		const pauseBtn = document.getElementById('pauseToggle');
+
+		const scene = new THREE.Scene();
+		scene.fog = new THREE.Fog(0x07111f, 18, 50);
+		const sceneMaterials = [];
+		function registerMaterial(material) {
+			sceneMaterials.push(material);
+			return material;
+		}
+
+		const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 200);
+		camera.position.set(10, 8, 14);
+
+		const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+		renderer.setSize(window.innerWidth, window.innerHeight);
+		renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+		renderer.shadowMap.enabled = true;
+		renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+		app.appendChild(renderer.domElement);
+
+		const controls = new OrbitControls(camera, renderer.domElement);
+		controls.enableDamping = true;
+		controls.target.set(0, 2, 0);
+		renderer.domElement.classList.add('grab-ready');
+
+		const ambient = new THREE.AmbientLight(0xcde7ff, 0.55);
+		scene.add(ambient);
+
+		const dirLight = new THREE.DirectionalLight(0xffffff, 1.4);
+		const roomLightTarget = new THREE.Object3D();
+		scene.add(roomLightTarget);
+		dirLight.target = roomLightTarget;
+		const lightingParams = {
+			globalIntensity: 1.4,
+			globalAzimuth: 35,
+			globalElevation: 58,
+			lampIntensity: 2.2,
+			lampAzimuth: -28,
+			lampElevation: 32,
+			surfaceGloss: 0.72,
+		};
+
+		function refreshSceneMaterials() {
+			const roomRoughness = THREE.MathUtils.lerp(0.9, 0.18, lightingParams.surfaceGloss);
+			const shapeRoughness = THREE.MathUtils.lerp(0.72, 0.1, lightingParams.surfaceGloss);
+			const roomMetalness = THREE.MathUtils.lerp(0.02, 0.08, lightingParams.surfaceGloss);
+			const shapeMetalness = THREE.MathUtils.lerp(0.08, 0.22, lightingParams.surfaceGloss);
+
+			for (const material of sceneMaterials) {
+				if (!material || !material.isMaterial) continue;
+				if (material.userData?.kind === 'room') {
+					material.roughness = roomRoughness;
+					material.metalness = roomMetalness;
+				} else if (material.userData?.kind === 'shape') {
+					material.roughness = shapeRoughness;
+					material.metalness = shapeMetalness;
+					material.emissiveIntensity = 0.06 + lightingParams.surfaceGloss * 0.08;
+				}
+				material.needsUpdate = true;
+			}
+		}
+
+		function updateDirectionalLight() {
+			const az = THREE.MathUtils.degToRad(lightingParams.globalAzimuth);
+			const el = THREE.MathUtils.degToRad(lightingParams.globalElevation);
+			const radius = 18;
+			const x = Math.cos(el) * Math.cos(az) * radius;
+			const y = Math.sin(el) * radius;
+			const z = Math.cos(el) * Math.sin(az) * radius;
+			dirLight.position.set(x, y, z);
+			dirLight.target.position.set(0, 0.5, 0);
+			dirLight.intensity = lightingParams.globalIntensity;
+			ambient.intensity = 0.28 + lightingParams.globalIntensity * 0.14;
+			refreshSceneMaterials();
+		}
+		updateDirectionalLight();
+
+		const lampState = {
+			group: null,
+			target: null,
+			spot: null,
+			bulb: null,
+			pickables: [],
+			dragging: false,
+		};
+		dirLight.castShadow = true;
+		dirLight.shadow.mapSize.set(2048, 2048);
+		dirLight.shadow.camera.near = 1;
+		dirLight.shadow.camera.far = 40;
+		dirLight.shadow.camera.left = -18;
+		dirLight.shadow.camera.right = 18;
+		dirLight.shadow.camera.top = 18;
+		dirLight.shadow.camera.bottom = -18;
+		scene.add(dirLight);
+
+		const hemi = new THREE.HemisphereLight(0x9fd6ff, 0x17304f, 0.85);
+		scene.add(hemi);
+
+		const room = {
+			width: 24,
+			height: 14,
+			depth: 24,
+		};
+		const floorY = -room.height / 2 + 1.25;
+		const bounds = { x: room.width / 2 - 1.6, y: room.height / 2 - 1.6, z: room.depth / 2 - 1.6 };
+
+		const roomMaterials = [
+			registerMaterial(Object.assign(new THREE.MeshStandardMaterial({ color: 0x1b304d, side: THREE.BackSide }), { userData: { kind: 'room' } })),
+			registerMaterial(Object.assign(new THREE.MeshStandardMaterial({ color: 0x15273f, side: THREE.BackSide }), { userData: { kind: 'room' } })),
+			registerMaterial(Object.assign(new THREE.MeshStandardMaterial({ color: 0x1a3658, transparent: true, opacity: 0, depthWrite: false, side: THREE.BackSide }), { userData: { kind: 'room' } })),
+			registerMaterial(Object.assign(new THREE.MeshStandardMaterial({ color: 0x0f1f34, side: THREE.BackSide }), { userData: { kind: 'room' } })),
+			registerMaterial(Object.assign(new THREE.MeshStandardMaterial({ color: 0x16273f, side: THREE.BackSide }), { userData: { kind: 'room' } })),
+			registerMaterial(Object.assign(new THREE.MeshStandardMaterial({ color: 0x13263e, side: THREE.BackSide }), { userData: { kind: 'room' } })),
+		];
+		const roomMesh = new THREE.Mesh(new THREE.BoxGeometry(room.width, room.height, room.depth), roomMaterials);
+		roomMesh.position.set(0, 0.6, 0);
+		roomMesh.receiveShadow = true;
+		scene.add(roomMesh);
+
+		const roomTrim = new THREE.Mesh(
+			new THREE.BoxGeometry(room.width + 0.15, room.height + 0.15, room.depth + 0.15),
+			new THREE.MeshStandardMaterial({ color: 0x09111c, roughness: 1, metalness: 0.0, side: THREE.BackSide, transparent: true, opacity: 0.15 })
+		);
+		roomTrim.position.copy(roomMesh.position);
+		scene.add(roomTrim);
+
+		const roomEdges = new THREE.LineSegments(
+			new THREE.EdgesGeometry(new THREE.BoxGeometry(room.width, room.height, room.depth), 12),
+			new THREE.LineBasicMaterial({ color: 0x88dfff, transparent: true, opacity: 0.18 })
+		);
+		roomEdges.position.copy(roomMesh.position);
+		scene.add(roomEdges);
+
+		const floor = new THREE.Mesh(
+			new THREE.BoxGeometry(room.width - 0.4, 0.5, room.depth - 0.4),
+			new THREE.MeshStandardMaterial({ color: 0x11233d, metalness: 0.2, roughness: 0.92 })
+		);
+		floor.position.y = floorY - 0.25;
+		floor.receiveShadow = true;
+		scene.add(floor);
+
+		const grid = new THREE.GridHelper(room.width - 0.4, 24, 0x436b9a, 0x20364f);
+		grid.position.y = floorY + 0.01;
+		scene.add(grid);
+
+		const wallMaterial = registerMaterial(Object.assign(new THREE.MeshStandardMaterial({ color: 0x163052, transparent: true, opacity: 0.18, roughness: 1, side: THREE.BackSide }), { userData: { kind: 'room' } }));
+		const roomWalls = [
+			[new THREE.Vector3(0, 0.6, -room.depth / 2 + 0.01), new THREE.Vector3(room.width, room.height, 0.4)],
+			[new THREE.Vector3(0, 0.6, room.depth / 2 - 0.01), new THREE.Vector3(room.width, room.height, 0.4)],
+			[new THREE.Vector3(-room.width / 2 + 0.01, 0.6, 0), new THREE.Vector3(0.4, room.height, room.depth)],
+			[new THREE.Vector3(room.width / 2 - 0.01, 0.6, 0), new THREE.Vector3(0.4, room.height, room.depth)],
+		].map(([pos, scale]) => {
+			const wall = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), wallMaterial);
+			wall.scale.copy(scale);
+			wall.position.copy(pos);
+			wall.castShadow = false;
+			wall.receiveShadow = true;
+			scene.add(wall);
+			return wall;
+		});
+
+		const lampGroup = new THREE.Group();
+		lampGroup.position.set(8.0, floorY + 0.25, -0.8);
+		lampGroup.rotation.y = 0.4;
+		lampGroup.scale.setScalar(1.24);
+		scene.add(lampGroup);
+
+		const lampMetal = registerMaterial(Object.assign(new THREE.MeshStandardMaterial({ color: 0xbfd2db, metalness: 0.75, roughness: 0.3 }), { userData: { kind: 'shape' } }));
+		const lampDark = registerMaterial(Object.assign(new THREE.MeshStandardMaterial({ color: 0x101820, metalness: 0.25, roughness: 0.65 }), { userData: { kind: 'shape' } }));
+		const lampGlow = registerMaterial(Object.assign(new THREE.MeshStandardMaterial({ color: 0xfff0c9, emissive: 0xffd29a, emissiveIntensity: 1.4, metalness: 0.0, roughness: 0.2 }), { userData: { kind: 'shape' } }));
+
+		const lampBase = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.1, 0.22, 24), lampDark);
+		lampBase.castShadow = true;
+		lampBase.receiveShadow = true;
+		lampGroup.add(lampBase);
+
+		const lampStem = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 2.2, 16), lampMetal);
+		lampStem.position.set(0, 1.05, 0);
+		lampStem.castShadow = true;
+		lampStem.receiveShadow = true;
+		lampGroup.add(lampStem);
+
+		const lampArm = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 1.7, 16), lampMetal);
+		lampArm.rotation.z = Math.PI / 2.35;
+		lampArm.position.set(0.7, 2.0, 0);
+		lampArm.castShadow = true;
+		lampArm.receiveShadow = true;
+		lampGroup.add(lampArm);
+
+		const lampHeadPivot = new THREE.Group();
+		lampHeadPivot.position.set(1.35, 2.55, 0);
+		lampGroup.add(lampHeadPivot);
+
+		const lampHead = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.15, 24, 1, true), lampMetal);
+		lampHead.rotation.x = Math.PI / 2;
+		lampHead.castShadow = true;
+		lampHead.receiveShadow = true;
+		lampHeadPivot.add(lampHead);
+
+		const lampBulb = new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 12), lampGlow);
+		lampBulb.position.set(0.0, 0.0, -0.45);
+		lampHeadPivot.add(lampBulb);
+
+		const lampTarget = new THREE.Object3D();
+		scene.add(lampTarget);
+		const lampSpot = new THREE.SpotLight(0xfff1d7, lightingParams.lampIntensity, 28, Math.PI / 8, 0.32, 1.2);
+		lampSpot.castShadow = true;
+		lampSpot.shadow.mapSize.set(1024, 1024);
+		lampSpot.position.set(0, 0.2, 0);
+		lampHeadPivot.add(lampSpot);
+		lampSpot.target = lampTarget;
+
+		const lampFill = new THREE.PointLight(0xffdca8, lightingParams.lampIntensity * 0.38, 8, 2);
+		lampFill.position.set(0, 0.05, -0.2);
+		lampHeadPivot.add(lampFill);
+
+		lampState.group = lampGroup;
+		lampState.target = lampTarget;
+		lampState.spot = lampSpot;
+		lampState.bulb = lampBulb;
+		lampState.pickables = [lampBase, lampStem, lampArm, lampHead, lampBulb];
+		for (const part of lampState.pickables) {
+			part.userData.lamp = lampState;
+		}
+
+		function updateLamp() {
+			const az = THREE.MathUtils.degToRad(lightingParams.lampAzimuth);
+			const el = THREE.MathUtils.degToRad(lightingParams.lampElevation);
+			const aimDistance = 6.8;
+			const direction = new THREE.Vector3(
+				Math.cos(el) * Math.cos(az),
+				Math.sin(el),
+				Math.cos(el) * Math.sin(az)
+			).normalize();
+			const targetPos = lampGroup.position.clone().addScaledVector(direction, aimDistance);
+			lampTarget.position.copy(targetPos);
+			lampSpot.intensity = lightingParams.lampIntensity;
+			lampFill.intensity = lightingParams.lampIntensity * 0.38;
+			lampHeadPivot.lookAt(targetPos);
+			lampBulb.scale.setScalar(1 + lightingParams.lampIntensity * 0.06);
+		}
+		updateLamp();
+		refreshSceneMaterials();
+
+		const bodies = [];
+		const clock = new THREE.Clock();
+		const raycaster = new THREE.Raycaster();
+		const pointer = new THREE.Vector2();
+		const dragPlane = new THREE.Plane();
+		const dragPoint = new THREE.Vector3();
+		const dragOffset = new THREE.Vector3();
+		const dragNormal = new THREE.Vector3();
+		const params = {
+			gravity: 9.81,
+			deltaT: 0.016,
+			restitution: 0.78,
+			vortex: false,
+			paused: false,
+		};
+		const gravity = new THREE.Vector3(0, -params.gravity, 0);
+		const vortexCenter = new THREE.Vector3(0, 1.0, 0);
+
+		const palette = [0x77d9ff, 0x8bffcf, 0xff9b6b, 0xc78bff, 0xff7aa2, 0xf5e96c];
+
+		function makeMaterial(color) {
+			const material = registerMaterial(new THREE.MeshStandardMaterial({
+				color,
+				metalness: 0.15,
+				roughness: 0.35,
+				flatShading: true,
+				transparent: true,
+				opacity: 1,
+				emissive: new THREE.Color(color).multiplyScalar(0.08),
+			}));
+			material.userData.kind = 'shape';
+			return material;
+		}
+
+		function randomColor() {
+			return palette[Math.floor(Math.random() * palette.length)];
+		}
+
+		function addBody(kind) {
+			let geometry;
+			let radius;
+
+			if (kind === 'sphere') {
+				radius = 0.55 + Math.random() * 0.45;
+				geometry = new THREE.SphereGeometry(radius, 24, 18);
+			} else if (kind === 'cube') {
+				const size = 0.8 + Math.random() * 0.55;
+				radius = Math.sqrt(3) * size * 0.5;
+				geometry = new THREE.BoxGeometry(size, size, size);
+			} else {
+				const size = 0.95 + Math.random() * 0.35;
+				radius = size * 0.9;
+				geometry = new THREE.TetrahedronGeometry(size, 0);
+			}
+
+			const mesh = new THREE.Mesh(geometry, makeMaterial(randomColor()));
+			mesh.castShadow = true;
+			mesh.receiveShadow = true;
+			mesh.position.set(
+				(Math.random() - 0.5) * 4,
+				5 + Math.random() * 4,
+				(Math.random() - 0.5) * 4
+			);
+			mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+			scene.add(mesh);
+
+			const body = {
+				kind,
+				mesh,
+				radius,
+				mass: radius * radius * radius,
+				invMass: 1 / (radius * radius * radius),
+				velocity: new THREE.Vector3(
+					(Math.random() - 0.5) * 3,
+					0,
+					(Math.random() - 0.5) * 3
+				),
+				angularVelocity: new THREE.Vector3(
+					(Math.random() - 0.5) * 2.4,
+					(Math.random() - 0.5) * 2.4,
+					(Math.random() - 0.5) * 2.4
+				),
+				restitution: 0.9 + Math.random() * 0.1,
+				dragging: false,
+				fading: false,
+				fadeAlpha: 1,
+			};
+			mesh.userData.body = body;
+			body.material = mesh.material;
+
+			bodies.push(body);
+			bodyCountEl.textContent = String(bodies.length);
+			return body;
+		}
+
+		function clearBodies() {
+			if (activeDrag) {
+				activeDrag.dragging = false;
+				activeDrag = null;
+				controls.enabled = true;
+				renderer.domElement.classList.remove('grabbing');
+				renderer.domElement.classList.add('grab-ready');
+			}
+			while (bodies.length) {
+				const body = bodies.pop();
+				scene.remove(body.mesh);
+				body.mesh.geometry.dispose();
+				body.mesh.material.dispose();
+			}
+			bodyCountEl.textContent = '0';
+		}
+
+		function seedScene() {
+			clearBodies();
+			for (let i = 0; i < 3; i++) addBody('sphere');
+			for (let i = 0; i < 3; i++) addBody('cube');
+			for (let i = 0; i < 2; i++) addBody('tetra');
+		}
+
+		function updatePointer(event) {
+			const rect = renderer.domElement.getBoundingClientRect();
+			pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+			pointer.y = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
+		}
+
+		function bodyFromIntersection(intersection) {
+			const object = intersection?.object;
+			if (!object) return null;
+			if (object.userData?.body) {
+				return { type: 'body', value: object.userData.body };
+			}
+			if (object.userData?.lamp) {
+				return { type: 'lamp', value: object.userData.lamp };
+			}
+			return null;
+		}
+
+		let activeDrag = null;
+		let activeDragType = null;
+		let lastDragTime = 0;
+		const previousDragPoint = new THREE.Vector3();
+		const lampDragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -floorY - 0.25);
+
+		function beginDrag(event) {
+			event.preventDefault();
+			event.stopPropagation();
+			updatePointer(event);
+			raycaster.setFromCamera(pointer, camera);
+			const dragTargets = [...bodies.map(body => body.mesh), ...lampState.pickables];
+			const hits = raycaster.intersectObjects(dragTargets, false);
+			if (!hits.length) return;
+
+			const dragTarget = bodyFromIntersection(hits[0]);
+			if (!dragTarget) return;
+
+			activeDrag = dragTarget.value;
+			activeDragType = dragTarget.type;
+			activeDrag.dragging = true;
+			controls.enabled = false;
+			renderer.domElement.classList.remove('grab-ready');
+			renderer.domElement.classList.add('grabbing');
+			if (renderer.domElement.setPointerCapture) {
+				renderer.domElement.setPointerCapture(event.pointerId);
+			}
+
+			if (activeDragType === 'lamp') {
+				dragPlane.copy(lampDragPlane);
+				dragOffset.copy(hits[0].point).sub(activeDrag.group.position);
+			} else {
+				dragNormal.copy(camera.getWorldDirection(new THREE.Vector3()));
+				dragPlane.setFromNormalAndCoplanarPoint(dragNormal, hits[0].point);
+				dragOffset.copy(hits[0].point).sub(activeDrag.mesh.position);
+			}
+			previousDragPoint.copy(hits[0].point);
+			lastDragTime = performance.now();
+			if (activeDragType === 'body') {
+				activeDrag.velocity.set(0, 0, 0);
+			}
+		}
+
+		function moveDrag(event) {
+			if (!activeDrag) return;
+			updatePointer(event);
+			raycaster.setFromCamera(pointer, camera);
+			if (!raycaster.ray.intersectPlane(dragPlane, dragPoint)) return;
+
+			const targetPosition = dragPoint.clone().sub(dragOffset);
+			const now = performance.now();
+			const dt = Math.max((now - lastDragTime) / 1000, 0.001);
+			if (activeDragType === 'lamp') {
+				activeDrag.group.position.set(
+					THREE.MathUtils.clamp(targetPosition.x, -room.width / 2 + 1.4, room.width / 2 - 1.4),
+					floorY + 0.25,
+					THREE.MathUtils.clamp(targetPosition.z, -room.depth / 2 + 1.4, room.depth / 2 - 1.4)
+				);
+				updateLamp();
+			} else {
+				activeDrag.velocity.copy(targetPosition).sub(activeDrag.mesh.position).divideScalar(dt);
+				activeDrag.mesh.position.copy(targetPosition);
+			}
+			previousDragPoint.copy(dragPoint);
+			lastDragTime = now;
+		}
+
+		function endDrag(event) {
+			if (!activeDrag) return;
+			activeDrag.dragging = false;
+			activeDrag = null;
+			activeDragType = null;
+			controls.enabled = true;
+			if (renderer.domElement.releasePointerCapture) {
+				try {
+					renderer.domElement.releasePointerCapture(event.pointerId);
+				} catch {
+					// Ignore capture release issues.
+				}
+			}
+			renderer.domElement.classList.remove('grabbing');
+			renderer.domElement.classList.add('grab-ready');
+		}
+
+		renderer.domElement.addEventListener('pointerdown', beginDrag);
+		window.addEventListener('pointermove', moveDrag);
+		window.addEventListener('pointerup', endDrag);
+		window.addEventListener('pointercancel', endDrag);
+
+		function resolveBodyCollisions() {
+			for (let i = 0; i < bodies.length; i++) {
+				for (let j = i + 1; j < bodies.length; j++) {
+					const a = bodies[i];
+					const b = bodies[j];
+					if (a.fading || b.fading) continue;
+					const delta = b.mesh.position.clone().sub(a.mesh.position);
+					const distance = delta.length();
+					const minDistance = a.radius + b.radius;
+
+					if (distance === 0 || distance >= minDistance) continue;
+
+					const normal = delta.multiplyScalar(1 / distance);
+					const penetration = minDistance - distance;
+
+					const invMassA = a.dragging ? 0 : a.invMass;
+					const invMassB = b.dragging ? 0 : b.invMass;
+					const invMassSum = invMassA + invMassB;
+					if (invMassSum === 0) continue;
+
+					const correction = normal.clone().multiplyScalar((penetration / invMassSum) * 0.85);
+					if (!a.dragging) a.mesh.position.addScaledVector(correction, -invMassA);
+					if (!b.dragging) b.mesh.position.addScaledVector(correction, invMassB);
+
+					const relativeVelocity = b.velocity.clone().sub(a.velocity);
+					const velocityAlongNormal = relativeVelocity.dot(normal);
+					if (velocityAlongNormal > 0) continue;
+
+					const e = Math.min(a.restitution, b.restitution) * params.restitution;
+					const impulseScalar = -(1 + e) * velocityAlongNormal / invMassSum;
+					const impulse = normal.clone().multiplyScalar(impulseScalar);
+
+					if (!a.dragging) a.velocity.addScaledVector(impulse, -invMassA);
+					if (!b.dragging) b.velocity.addScaledVector(impulse, invMassB);
+				}
+			}
+		}
+
+		function burstScene() {
+			for (let i = 0; i < 10; i++) {
+				const kinds = ['sphere', 'cube', 'tetra'];
+				const body = addBody(kinds[i % kinds.length]);
+				body.mesh.position.set((Math.random() - 0.5) * 2, 2.5 + Math.random() * 1.5, (Math.random() - 0.5) * 2);
+				body.velocity.set((Math.random() - 0.5) * 6, 5 + Math.random() * 4, (Math.random() - 0.5) * 6);
+				body.angularVelocity.multiplyScalar(1.5);
+			}
+		}
+
+		function bounceAxis(position, velocity, radius, min, max, axis) {
+			if (position[axis] - radius < min) {
+				position[axis] = min + radius;
+				velocity[axis] = Math.abs(velocity[axis]);
+				return true;
+			}
+			if (position[axis] + radius > max) {
+				position[axis] = max - radius;
+				velocity[axis] = -Math.abs(velocity[axis]);
+				return true;
+			}
+			return false;
+		}
+
+		function updatePhysics(dt) {
+			const cappedDt = Math.min(dt, 0.033) * (params.deltaT / 0.016);
+			gravity.set(0, -params.gravity, 0);
+			const escapeY = roomMesh.position.y + room.height / 2 + 0.3;
+
+			for (const body of bodies) {
+				if (body.dragging || body.fading) continue;
+
+				body.velocity.addScaledVector(gravity, cappedDt);
+
+				if (params.vortex) {
+					const swirl = body.mesh.position.clone().sub(vortexCenter);
+					swirl.y = 0;
+					const dist = Math.max(swirl.length(), 0.001);
+					const radial = swirl.clone().multiplyScalar(-1 / dist);
+					const tangential = new THREE.Vector3(-radial.z, 0, radial.x);
+					const strength = Math.min(10 / dist, 2.6);
+					body.velocity.addScaledVector(radial, strength * 0.55 * cappedDt);
+					body.velocity.addScaledVector(tangential, strength * 1.35 * cappedDt);
+				}
+
+				body.velocity.multiplyScalar(0.999);
+
+				body.mesh.position.addScaledVector(body.velocity, cappedDt);
+
+				body.mesh.rotation.x += body.angularVelocity.x * cappedDt;
+				body.mesh.rotation.y += body.angularVelocity.y * cappedDt;
+				body.mesh.rotation.z += body.angularVelocity.z * cappedDt;
+
+				const pos = body.mesh.position;
+				const vel = body.velocity;
+				const r = body.radius;
+
+				if (pos.y - r < floorY) {
+					pos.y = floorY + r;
+					vel.y = Math.abs(vel.y) * body.restitution * params.restitution;
+					vel.x *= 0.985;
+					vel.z *= 0.985;
+				}
+
+				if (bounceAxis(pos, vel, r, -bounds.x, bounds.x, 'x')) vel.x *= params.restitution;
+				if (bounceAxis(pos, vel, r, -bounds.z, bounds.z, 'z')) vel.z *= params.restitution;
+
+				if (Math.abs(vel.y) < 0.015 && Math.abs(pos.y - (floorY + r)) < 0.001) {
+					vel.y = 0;
+				}
+
+				if (pos.y - r > escapeY) {
+					body.fading = true;
+					body.fadeAlpha = 1;
+					body.mesh.renderOrder = 10;
+				}
+
+			}
+
+			for (const body of bodies) {
+				if (!body.fading) continue;
+				body.fadeAlpha = Math.max(body.fadeAlpha - cappedDt * 1.4, 0);
+				body.mesh.material.opacity = body.fadeAlpha;
+				body.mesh.scale.setScalar(Math.max(0.1, body.fadeAlpha));
+				if (body.fadeAlpha <= 0) {
+					scene.remove(body.mesh);
+					body.mesh.geometry.dispose();
+					body.mesh.material.dispose();
+					body._removeMe = true;
+				}
+			}
+
+			for (let i = bodies.length - 1; i >= 0; i--) {
+				if (bodies[i]._removeMe) bodies.splice(i, 1);
+			}
+			bodyCountEl.textContent = String(bodies.length);
+
+			resolveBodyCollisions();
+		}
+
+		function updateUI() {
+			const gravityText = params.gravity.toFixed(2);
+			const deltaTText = params.deltaT.toFixed(3);
+			gravityValueEl.textContent = gravityText;
+			gravityFormulaEl.textContent = gravityText;
+			gravityStatEl.textContent = gravityText;
+			deltaTValueEl.textContent = deltaTText;
+			deltaTFormulaEl.textContent = deltaTText;
+			restitutionValueEl.textContent = params.restitution.toFixed(2);
+			restitutionFormulaEl.textContent = params.restitution.toFixed(2);
+			lightIntensityValueEl.textContent = lightingParams.globalIntensity.toFixed(2);
+			lightAzimuthValueEl.textContent = `${lightingParams.globalAzimuth.toFixed(0)}°`;
+			lightElevationValueEl.textContent = `${lightingParams.globalElevation.toFixed(0)}°`;
+			lampIntensityValueEl.textContent = lightingParams.lampIntensity.toFixed(2);
+			lampAzimuthValueEl.textContent = `${lightingParams.lampAzimuth.toFixed(0)}°`;
+			lampElevationValueEl.textContent = `${lightingParams.lampElevation.toFixed(0)}°`;
+			glossValueEl.textContent = lightingParams.surfaceGloss.toFixed(2);
+		}
+
+		function setPanelCollapsed(collapsed) {
+			const isCollapsed = Boolean(collapsed);
+			settingsBody.hidden = isCollapsed;
+			panelToggle.textContent = isCollapsed ? 'Expand' : 'Collapse';
+			panelToggle.setAttribute('aria-expanded', String(!isCollapsed));
+			panelToggle.closest('.card').classList.toggle('collapsed', isCollapsed);
+		}
+
+		panelToggle.addEventListener('click', () => {
+			const isCollapsed = panelToggle.getAttribute('aria-expanded') === 'true';
+			setPanelCollapsed(isCollapsed);
+		});
+
+		gravitySlider.addEventListener('input', (event) => {
+			params.gravity = Number(event.target.value);
+			updateUI();
+		});
+
+		deltaTSlider.addEventListener('input', (event) => {
+			params.deltaT = Number(event.target.value);
+			updateUI();
+		});
+
+		restitutionSlider.addEventListener('input', (event) => {
+			params.restitution = Number(event.target.value);
+			updateUI();
+		});
+
+		lightIntensitySlider.addEventListener('input', (event) => {
+			lightingParams.globalIntensity = Number(event.target.value);
+			updateDirectionalLight();
+			updateUI();
+		});
+
+		lightAzimuthSlider.addEventListener('input', (event) => {
+			lightingParams.globalAzimuth = Number(event.target.value);
+			updateDirectionalLight();
+			updateUI();
+		});
+
+		lightElevationSlider.addEventListener('input', (event) => {
+			lightingParams.globalElevation = Number(event.target.value);
+			updateDirectionalLight();
+			updateUI();
+		});
+
+		glossSlider.addEventListener('input', (event) => {
+			lightingParams.surfaceGloss = Number(event.target.value);
+			refreshSceneMaterials();
+			updateUI();
+		});
+
+		lampIntensitySlider.addEventListener('input', (event) => {
+			lightingParams.lampIntensity = Number(event.target.value);
+			updateLamp();
+			updateUI();
+		});
+
+		lampAzimuthSlider.addEventListener('input', (event) => {
+			lightingParams.lampAzimuth = Number(event.target.value);
+			updateLamp();
+			updateUI();
+		});
+
+		lampElevationSlider.addEventListener('input', (event) => {
+			lightingParams.lampElevation = Number(event.target.value);
+			updateLamp();
+			updateUI();
+		});
+
+		burstBtn.addEventListener('click', burstScene);
+
+		vortexBtn.addEventListener('click', () => {
+			params.vortex = !params.vortex;
+			vortexBtn.textContent = `Vortex: ${params.vortex ? 'On' : 'Off'}`;
+		});
+
+		pauseBtn.addEventListener('click', () => {
+			params.paused = !params.paused;
+			pauseBtn.textContent = params.paused ? 'Resume' : 'Pause';
+		});
+
+		addSphereBtn.addEventListener('click', () => addBody('sphere'));
+		addCubeBtn.addEventListener('click', () => addBody('cube'));
+		addTetraBtn.addEventListener('click', () => addBody('tetra'));
+		resetBtn.addEventListener('click', seedScene);
+
+		window.addEventListener('resize', () => {
+			camera.aspect = window.innerWidth / window.innerHeight;
+			camera.updateProjectionMatrix();
+			renderer.setSize(window.innerWidth, window.innerHeight);
+			renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+		});
+
+		seedScene();
+		updateUI();
+		setPanelCollapsed(false);
+		updateDirectionalLight();
+
+		function animate() {
+			const dt = clock.getDelta();
+			if (!params.paused) {
+				updatePhysics(dt);
+			}
+			controls.update();
+			renderer.render(scene, camera);
+			requestAnimationFrame(animate);
+		}
+
+		animate();
+	</script>
+</body>
+</html>
